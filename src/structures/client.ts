@@ -1,4 +1,3 @@
-import CaptchaSolver from 'discord.js-selfbot-v13/src/rest/CaptchaSolver';
 import { Client as DiscordJSClient } from 'discord.js';
 import { createLogger } from '@structures/logger';
 import Invitation from '@structures/invitation';
@@ -11,7 +10,6 @@ import path from 'path';
 import fs from 'fs';
 
 class Client extends DiscordJSClient {
-	captcha = new CaptchaSolver('2captcha', config.captcha.key);
 	queue = new Queue(this.onDrain.bind(this));
 	invitation = new Invitation(this);
 	tokens = new Tokens(this);

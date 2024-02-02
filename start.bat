@@ -9,3 +9,4 @@ if exist node_modules\ (
 )
 
 npm run start
+pause

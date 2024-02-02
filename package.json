@@ -6,19 +6,19 @@
 	"author": "Mario <mariovparaschiv@gmail.com> (github.com/localip)",
 	"license": "Unlicensed",
 	"scripts": {
-		"build": "swc src -d dist -D --delete-dir-on-start",
+		"build": "swc src -d dist -D --delete-dir-on-start --strip-leading-paths",
 		"init": "node --no-deprecation dist/index.js",
 		"start": "npm run build && npm run init"
 	},
 	"dependencies": {
 		"2captcha": "^3.0.7",
 		"discord.js": "^14.14.1",
-		"discord.js-selfbot-v13": "^3.1.1",
+		"discord.js-selfbot-v13": "github:aiko-chan-ai/discord.js-selfbot-v13",
 		"source-map-support": "^0.5.21"
 	},
 	"devDependencies": {
-		"@swc/cli": "^0.1.63",
-		"@swc/core": "^1.3.101",
-		"@types/node": "^20.10.1"
+		"@swc/cli": "^0.3.6",
+		"@swc/core": "^1.3.107",
+		"@types/node": "^20.11.16"
 	}
 }

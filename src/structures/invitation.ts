@@ -1,11 +1,14 @@
-import { Client as SelfbotClient } from 'discord.js-selfbot-v13';
 import { ChannelType, Guild, GuildMember, Invite, Role } from 'discord.js';
+import { Client as SelfbotClient } from 'discord.js-selfbot-v13';
 import { createLogger } from '@structures/logger';
 import Client from '@structures/client';
 import config from '@../config.json';
 import { sleep } from '@utilities';
+import { Solver } from '2captcha';
 import fs from 'node:fs';
 import path from 'path';
+
+const solver = new Solver(config.captcha.key);
 
 class Invitation {
 	constructor(
@@ -78,9 +81,14 @@ class Invitation {
 	async joinGuild(invite: string, token: string, id: string) {
 		if (!token || !invite) return false;
 		const client = new SelfbotClient({
-			captchaService: '2captcha',
+			captchaSolver: (captcha, agent) => {
+				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
+					invisible: 1,
+					userAgent: agent,
+					data: captcha.captcha_rqdata,
+				}).then(res => res.data);
+			},
 			captchaRetryLimit: Infinity,
-			captchaKey: config.captcha.key,
 			http: {
 				version: 10,
 				headers: {
@@ -90,8 +98,7 @@ class Invitation {
 			},
 			ws: {
 				properties: config.userProperties
-			},
-			checkUpdate: false
+			}
 		});
 
 		await new Promise((resolve, reject) => {
@@ -103,7 +110,7 @@ class Invitation {
 				this.logger.debug(error);
 			});
 
-			client.login(token).catch(() => reject(new Error('Invalid token')));
+			client.login(token).catch(reject);
 
 			client.on('ready', async () => {
 				this.logger.debug(`User token successfully signed in as ${client.user.tag}`);
@@ -119,7 +126,7 @@ class Invitation {
 
 				try {
 					this.logger.info('Accepting invite:', invite);
-					await client.acceptInvite(invite);
+					await client.acceptInvite(invite, { bypassOnboarding: true, bypassVerify: true });
 					this.logger.info('Accepted invite:', invite);
 
 					client.destroy();
@@ -340,9 +347,14 @@ class Invitation {
 	async leaveGuild(token: string, id: string) {
 		if (!token || !id) return false;
 		const client = new SelfbotClient({
-			captchaService: '2captcha',
+			captchaSolver: (captcha, agent) => {
+				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
+					invisible: 1,
+					userAgent: agent,
+					data: captcha.captcha_rqdata,
+				}).then(res => res.data);
+			},
 			captchaRetryLimit: Infinity,
-			captchaKey: config.captcha.key,
 			http: {
 				version: 10,
 				headers: {
@@ -352,8 +364,7 @@ class Invitation {
 			},
 			ws: {
 				properties: config.userProperties
-			},
-			checkUpdate: false
+			}
 		});
 
 		client.on('debug', (msg) => msg.includes('captcha') && this.logger.debug(msg));
@@ -367,7 +378,7 @@ class Invitation {
 				this.logger.debug(error);
 			});
 
-			client.login(token).catch(() => reject(new Error('Invalid token')));
+			client.login(token).catch(reject);
 
 			client.on('ready', async () => {
 				this.logger.debug(`User token successfully signed in as ${client.user.tag}`);
@@ -402,9 +413,14 @@ class Invitation {
 	async addBot(clientId: string, token: string, guild: string) {
 		if (!token || !guild || !clientId) return false;
 		const client = new SelfbotClient({
-			captchaService: '2captcha',
+			captchaSolver: (captcha, agent) => {
+				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
+					invisible: 1,
+					userAgent: agent,
+					data: captcha.captcha_rqdata,
+				}).then(res => res.data);
+			},
 			captchaRetryLimit: Infinity,
-			captchaKey: config.captcha.key,
 			http: {
 				version: 10,
 				headers: {
@@ -414,8 +430,7 @@ class Invitation {
 			},
 			ws: {
 				properties: config.userProperties
-			},
-			checkUpdate: false
+			}
 		});
 
 		client.on('debug', (msg) => msg.includes('captcha') && this.logger.debug(msg));
@@ -429,7 +444,7 @@ class Invitation {
 				this.logger.debug(error);
 			});
 
-			client.login(token).catch(() => reject(new Error('Invalid token')));
+			client.login(token).catch(reject);
 
 			client.on('ready', async () => {
 				this.logger.debug(`User token successfully signed in as ${client.user.tag}`);
@@ -447,8 +462,15 @@ class Invitation {
 					try {
 						this.logger.info('Adding bot to guild:', { guild, clientId });
 
-						// @ts-ignore
-						await g.addBot(clientId, ['ADMINISTRATOR']);
+						await client.authorizeURL(
+							`https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands&guild_id=${g.id}`,
+							{
+								guild_id: g.id,
+								permissions: '8', // Admin
+								authorize: true,
+							},
+						);
+
 						this.logger.success('Added bot to guild:', { guild, clientId });
 						addedToGuild = true;
 					} catch (e) {
@@ -458,8 +480,15 @@ class Invitation {
 
 							while (!addedToGuild) {
 								try {
-									// @ts-ignore
-									await g.addBot(clientId, []);
+									await client.authorizeURL(
+										`https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`,
+										{
+											guild_id: g.id,
+											permissions: '0',
+											authorize: true
+										},
+									);
+
 									this.logger.success('Added bot to guild:', { guild, clientId });
 									addedToGuild = true;
 								} catch (e) {
