@@ -126,15 +126,13 @@ class Invitation {
 
 				try {
 					this.logger.info('Accepting invite:', invite);
-					await client.acceptInvite(invite, { bypassOnboarding: true, bypassVerify: true });
+					await client.acceptInvite(invite, { bypassOnboarding: false, bypassVerify: false });
 					this.logger.info('Accepted invite:', invite);
 
 					client.destroy();
 
 					resolve(null);
 				} catch (e) {
-					this.logger.error('Failed to accept invite:', e);
-
 					client.destroy();
 
 					reject(e);
@@ -228,8 +226,7 @@ class Invitation {
 					joinedGuild = true;
 				} catch (e) {
 					if (e.message.includes('banned')) {
-						this.logger.warn(`We are banned from guild ${guild.id}, marking it as completed.`);
-						return true;
+						this.logger.warn(`We are banned from guild ${guild.id}, attempting with next token.`);
 					}
 
 					if (e.message.includes('Invites are currently paused')) {
@@ -237,9 +234,15 @@ class Invitation {
 						return true;
 					}
 
-					if (!e.message.includes('Your captcha was unable to be solved after 3 attempts.')) {
+					const isCaptchaError = e.message.includes('Your captcha was unable to be solved after 3 attempts.');
+
+					if (isCaptchaError) {
+						this.logger.warn('The captcha was unable to be solved after 3 attempts. Retrying with a new captcha.');
+					}
+
+					if (!isCaptchaError) {
 						this.client.tokens.invalidate(this.token);
-						this.logger.error('Failed to join with token ', e);
+						this.logger.error('Failed to join with token:', e);
 						this.token = this.client.tokens.getNext();
 
 						this.logger.info('Waiting 2000ms before trying next token...');
@@ -474,6 +477,13 @@ class Invitation {
 						this.logger.success('Added bot to guild:', { guild, clientId });
 						addedToGuild = true;
 					} catch (e) {
+						if (e.message.includes('Maximum number of server integrations reached')) {
+							this.logger.warn('This guild has reached the maximum number of server integrations. Skipping...');
+
+							client.destroy();
+							return resolve(true);
+						}
+
 						if (!e.message.includes('Your captcha was unable to be solved after 3 attempts')) {
 							this.logger.error('Failed to add bot to guild:', e);
 							this.logger.info('Trying to add bot without admin permissions...');

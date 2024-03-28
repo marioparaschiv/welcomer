@@ -53,8 +53,54 @@ class Client extends DiscordJSClient {
 		}
 	}
 
-	start() {
-		this.login(config.botToken);
+	async start() {
+		await this.getLatestClientNumber();
+		await this.login(config.botToken);
+	}
+
+	async getLatestClientNumber() {
+		const BUILD_NUMBER_STRING = 'build_number:"';
+		const BUILD_NUMBER_LENGTH = 6;
+
+		this.logger.info('Getting latest client build number to avoid account suspensions...');
+
+		const doc = await fetch('https://discord.com/app').then(r => r.text());
+		const scripts = doc.match(/\/assets\/[0-9]{1,5}.*?.js/gmi);
+
+		if (!scripts?.length) {
+			this.logger.error('Failed to get latest build number.');
+			return process.exit(-1);
+		}
+
+		// Reverse the script collection as the script containing the build number is usually at the end.
+		for (const script of scripts.reverse()) {
+			try {
+				const js = await fetch('https://discord.com' + script, {
+					headers: {
+						Origin: 'https://discord.com/',
+						Referer: 'https://discord.com/app',
+						'User-Agent': config.userAgent
+					}
+				}).then(r => r.text());
+
+				const idx = js.indexOf(BUILD_NUMBER_STRING);
+				if (idx === -1) continue;
+
+				const build = js.slice(idx + BUILD_NUMBER_STRING.length, (idx + BUILD_NUMBER_STRING.length) + BUILD_NUMBER_LENGTH);
+				const buildNumber = Number(build);
+
+				if (Number.isNaN(buildNumber)) {
+					throw new Error(`Expected build number to be a number. Got NaN. String: ${build}`);
+				}
+
+				config.userProperties["client_build_number"] = Number(build);
+				this.logger.success('Fetched latest client build number.');
+
+				break;
+			} catch (error) {
+				this.logger.error('Failed to make request while getting latest build number:', error);
+			}
+		}
 	}
 
 	async onDrain(id: string) {
