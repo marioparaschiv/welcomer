@@ -64,7 +64,7 @@ class Client extends DiscordJSClient {
 
 		this.logger.info('Getting latest client build number to avoid account suspensions...');
 
-		const doc = await fetch('https://discord.com/app').then(r => r.text());
+		const doc = await fetch('https://canary.discord.com/app').then(r => r.text());
 		const scripts = doc.match(/\/assets\/[0-9]{1,5}.*?.js/gmi);
 
 		if (!scripts?.length) {
@@ -75,10 +75,10 @@ class Client extends DiscordJSClient {
 		// Reverse the script collection as the script containing the build number is usually at the end.
 		for (const script of scripts.reverse()) {
 			try {
-				const js = await fetch('https://discord.com' + script, {
+				const js = await fetch('https://canary.discord.com' + script, {
 					headers: {
-						Origin: 'https://discord.com/',
-						Referer: 'https://discord.com/app',
+						Origin: 'https://canary.discord.com/',
+						Referer: 'https://canary.discord.com/app',
 						'User-Agent': config.userAgent
 					}
 				}).then(r => r.text());

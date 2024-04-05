@@ -90,10 +90,9 @@ class Invitation {
 			},
 			captchaRetryLimit: Infinity,
 			http: {
-				version: 10,
 				headers: {
 					'User-Agent': config.userAgent,
-					'X-Super-Properties': btoa(JSON.stringify(config.userProperties))
+					'X-Super-Properties': Buffer.from(JSON.stringify(config.userProperties), 'ascii').toString('base64')
 				}
 			},
 			ws: {
@@ -359,10 +358,9 @@ class Invitation {
 			},
 			captchaRetryLimit: Infinity,
 			http: {
-				version: 10,
 				headers: {
 					'User-Agent': config.userAgent,
-					'X-Super-Properties': btoa(JSON.stringify(config.userProperties))
+					'X-Super-Properties': Buffer.from(JSON.stringify(config.userProperties), 'ascii').toString('base64'),
 				}
 			},
 			ws: {
@@ -425,10 +423,9 @@ class Invitation {
 			},
 			captchaRetryLimit: Infinity,
 			http: {
-				version: 10,
 				headers: {
 					'User-Agent': config.userAgent,
-					'X-Super-Properties': btoa(JSON.stringify(config.userProperties))
+					'X-Super-Properties': Buffer.from(JSON.stringify(config.userProperties), 'ascii').toString('base64'),
 				}
 			},
 			ws: {
@@ -597,7 +594,7 @@ class Invitation {
 			method: 'POST',
 			headers: {
 				'Authorization': token,
-				'X-Super-Properties': btoa(JSON.stringify(config.userProperties)),
+				'X-Super-Properties': Buffer.from(JSON.stringify(config.userProperties), 'ascii').toString('base64'),
 				'User-Agent': config.userAgent,
 				'Content-Type': 'application/json'
 			},
@@ -824,7 +821,7 @@ class Invitation {
 			method: 'POST',
 			headers: {
 				'Authorization': token,
-				'X-Super-Properties': btoa(JSON.stringify(config.userProperties)),
+				'X-Super-Properties': Buffer.from(JSON.stringify(config.userProperties), 'ascii').toString('base64'),
 				'User-Agent': config.userAgent,
 				'Content-Type': 'application/json'
 			},
