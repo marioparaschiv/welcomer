@@ -463,10 +463,11 @@ class Invitation {
 						this.logger.info('Adding bot to guild:', { guild, clientId });
 
 						await client.authorizeURL(
-							`https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands&guild_id=${g.id}`,
+							`https://canary.discord.com/api/oauth2/authorize?client_id=${clientId}&scope=bot%20applications.commands`,
 							{
 								guild_id: g.id,
 								permissions: '8', // Admin
+								integration_type: 0,
 								authorize: true,
 							},
 						);
@@ -488,10 +489,11 @@ class Invitation {
 							while (!addedToGuild) {
 								try {
 									await client.authorizeURL(
-										`https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`,
+										`https://canary.discord.com/api/v9/oauth2/authorize?client_id=${clientId}&scope=bot%20applications.commands`,
 										{
 											guild_id: g.id,
 											permissions: '0',
+											integration_type: 0,
 											authorize: true
 										},
 									);
