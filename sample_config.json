@@ -1,0 +1,55 @@
+{
+	"botToken": "xxx",
+	"clientOptions": {
+		"apiVersion": "9"
+	},
+	"userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.310 Chrome/120.0.6099.291 Electron/28.2.7 Safari/537.36",
+	"captcha": {
+		"siteKey": "f5561ba9-8f1e-40ca-9b5b-a0b3f719ef34",
+		"key": "xxx"
+	},
+	"skipFullGuild": false,
+	"useCompletionFile": true,
+	"invalidTokenSleepTime": 0,
+	"queueSleepTime": 5000,
+	"userProperties": {
+		"os": "Windows",
+		"browser": "Discord Client",
+		"release_channel": "canary",
+		"client_version": "1.0.310",
+		"os_version": "10.0.22635",
+		"os_arch": "x64",
+		"app_arch": "x64",
+		"system_locale": "en-GB",
+		"browser_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.310 Chrome/120.0.6099.291 Electron/28.2.7 Safari/537.36",
+		"browser_version": "28.2.7",
+		"client_build_number": 282037,
+		"native_build_number": 46216,
+		"client_event_source": null
+	},
+	"bots": [
+		{
+			"botId": "1191508397082824754",
+			"clientId": "1191508397082824754"
+		},
+		{
+			"botId": "1192857142428967045",
+			"clientId": "1192857142428967045"
+		},
+		{
+			"botId": "1191789544194965565",
+			"clientId": "1191789544194965565"
+		}
+	],
+	"welcomerBots": {
+		"mee6": {
+			"inviteBot": false,
+			"updateWelcomer": false
+		},
+		"dyno": {
+			"inviteBot": false,
+			"updateWelcomer": false
+		}
+	},
+	"memberThreshold": 21
+}

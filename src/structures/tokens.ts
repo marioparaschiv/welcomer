@@ -5,12 +5,13 @@ import os from 'os';
 import fs from 'fs';
 
 class Tokens {
-	paths: { unused: string; used: string; invalid: string; };
+	paths: { unused: string; invalid: string; };
 	logger = createLogger('User Tokens');
 
 	invalid: string[] = [];
 	tokens: string[] = [];
-	used: string[] = [];
+
+	currentIndex = 0;
 
 	constructor(
 		public client: Client
@@ -20,7 +21,6 @@ class Tokens {
 
 		this.paths = {
 			unused: path.join(state, 'userTokens.txt'),
-			used: path.join(state, 'usedUserTokens.txt'),
 			invalid: path.join(state, 'invalidUserTokens.txt')
 		};
 
@@ -32,17 +32,6 @@ class Tokens {
 				this.tokens = parsed;
 			} catch (e) {
 				this.logger.error('Failed to load userTokens.txt:', e);
-			}
-		}
-
-		if (fs.existsSync(this.paths.used)) {
-			try {
-				const content = fs.readFileSync(this.paths.used, 'utf-8');
-				const parsed = content.split(/\r?\n/).filter(Boolean);
-
-				this.used = parsed;
-			} catch (e) {
-				this.logger.error('Failed to load usedUserTokens.txt:', e);
 			}
 		}
 
@@ -59,11 +48,13 @@ class Tokens {
 	}
 
 	getNext() {
-		const token = this.tokens.shift();
-		this.used.push(token);
-		this.persist();
+		if ((this.tokens.length - 1) >= this.currentIndex) {
+			this.currentIndex = 0;
+		} else {
+			this.currentIndex++;
+		}
 
-		return token;
+		return this.tokens[this.currentIndex];
 	}
 
 	add(token: string) {
@@ -74,16 +65,12 @@ class Tokens {
 		const idx = this.tokens.indexOf(token);
 		if (idx > -1) this.tokens.splice(idx, 1);
 
-		const idx2 = this.used.indexOf(token);
-		if (idx2 > -1) this.used.splice(idx2, 1);
-
 		this.invalid.push(token);
 		this.persist();
 	}
 
 	persist() {
 		fs.writeFileSync(this.paths.invalid, this.invalid.join(os.EOL));
-		fs.writeFileSync(this.paths.used, this.used.join(os.EOL));
 		fs.writeFileSync(this.paths.unused, this.tokens.join(os.EOL));
 	}
 }

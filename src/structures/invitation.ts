@@ -225,12 +225,13 @@ class Invitation {
 					joinedGuild = true;
 				} catch (e) {
 					if (e.message.includes('banned')) {
-						this.logger.warn(`We are banned from guild ${guild.id}, attempting with next token.`);
+						this.logger.warn(`We are banned from guild ${guild.id}, skipping it.`);
+						return false;
 					}
 
 					if (e.message.includes('Invites are currently paused')) {
-						this.logger.warn(`Invites are paused for guild ${guild.id}, marking it as completed.`);
-						return true;
+						this.logger.warn(`Invites are paused for guild ${guild.id}, skipping it.`);
+						return false;
 					}
 
 					const isCaptchaError = e.message.includes('Your captcha was unable to be solved after 3 attempts.');
@@ -244,9 +245,9 @@ class Invitation {
 						this.logger.error('Failed to join with token:', e);
 						this.token = this.client.tokens.getNext();
 
-						this.logger.info('Waiting 2000ms before trying next token...');
-						await sleep(2000);
-						this.logger.info('2000ms timeout over. Trying next token.');
+						this.logger.info(`Waiting ${config.invalidTokenSleepTime}ms before trying next token...`);
+						await sleep(config.invalidTokenSleepTime);
+						this.logger.info(`${config.invalidTokenSleepTime}ms timeout over. Trying next token.`);
 
 						if (!this.token) {
 							this.logger.warn('No valid tokens left... Stopping... Please add more tokens and restart.');
