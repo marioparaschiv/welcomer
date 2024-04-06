@@ -10,8 +10,8 @@
 	},
 	"skipFullGuild": false,
 	"useCompletionFile": true,
-	"invalidTokenSleepTime": 0,
 	"queueSleepTime": 5000,
+	"invalidTokenSleepTime": 2000,
 	"userProperties": {
 		"os": "Windows",
 		"browser": "Discord Client",

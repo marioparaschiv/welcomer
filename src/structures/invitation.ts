@@ -226,12 +226,12 @@ class Invitation {
 				} catch (e) {
 					if (e.message.includes('banned')) {
 						this.logger.warn(`We are banned from guild ${guild.id}, skipping it.`);
-						return false;
+						return true;
 					}
 
 					if (e.message.includes('Invites are currently paused')) {
 						this.logger.warn(`Invites are paused for guild ${guild.id}, skipping it.`);
-						return false;
+						return true;
 					}
 
 					const isCaptchaError = e.message.includes('Your captcha was unable to be solved after 3 attempts.');
