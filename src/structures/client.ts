@@ -1,9 +1,11 @@
 import { Client as DiscordJSClient } from 'discord.js';
 import { createLogger } from '@structures/logger';
 import Invitation from '@structures/invitation';
+import type { CycleTLSClient } from 'cycletls';
 import Tokens from '@structures/tokens';
 import Queue from '@structures/queue';
 import config from '@../config.json';
+import initCycleTLS from 'cycletls';
 import { sleep } from '@utilities';
 import * as Events from '@events';
 import path from 'path';
@@ -13,6 +15,7 @@ class Client extends DiscordJSClient {
 	queue = new Queue(this.onDrain.bind(this));
 	invitation = new Invitation(this);
 	tokens = new Tokens(this);
+	requests: CycleTLSClient;
 	completedGuilds = [];
 
 	constructor(
@@ -54,7 +57,10 @@ class Client extends DiscordJSClient {
 	}
 
 	async start() {
+		this.requests = await initCycleTLS();
+
 		await this.getLatestClientNumber();
+		this.logger.info(`Logging in...`);
 		await this.login(config.botToken);
 	}
 
@@ -65,7 +71,7 @@ class Client extends DiscordJSClient {
 		this.logger.info('Getting latest client build number to avoid account suspensions...');
 
 		const doc = await fetch('https://canary.discord.com/app').then(r => r.text());
-		const scripts = doc.match(/\/assets\/[0-9]{1,5}.*?.js/gmi);
+		const scripts = doc.match(/\/assets\/web\.([a-z]|[0-9]).*?.js/gmi);
 
 		if (!scripts?.length) {
 			this.logger.error('Failed to get latest build number.');

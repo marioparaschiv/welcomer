@@ -313,7 +313,6 @@ class Invitation {
 				try {
 					this.logger.info('Updating Dyno welcome message...');
 					await this.updateDynoWelcomeMessage(guild, this.token);
-					this.logger.success('Updated Dyno welcome message.');
 				} catch (e) {
 					this.logger.error('Failed to update Dyno welcome message.', e);
 				}
@@ -530,8 +529,8 @@ class Invitation {
 			const token = await this.getMEE6AuthToken(userToken);
 			if (!token) throw new Error('Failed to get authorization token.');
 
-			const setMessage = await fetch(`https://mee6.xyz/api/plugins/welcome/config/${guild.id}`, {
-				method: 'PATCH',
+			const setMessage = await this.client.requests(`https://mee6.xyz/api/plugins/welcome/config/${guild.id}`, {
+				timeout: Infinity,
 				headers: {
 					'Authorization': token,
 					'User-Agent': config.userAgent,
@@ -541,12 +540,12 @@ class Invitation {
 					'private_welcome_enabled': true,
 					'private_welcome_message': this.getWelcomeMessage('mee6')
 				})
-			});
+			}, 'patch');
 
 
 			if (setMessage.status !== 200) {
 				if (setMessage.status === 401) {
-					const json = await setMessage.json();
+					const json = setMessage;
 					const error = json['error']?.['message'];
 
 					if (error?.includes('Unauthorized') && !retry) {
@@ -567,10 +566,12 @@ class Invitation {
 	}
 
 	async getMEE6AuthToken(token: string) {
-		const login = await fetch('https://mee6.xyz/api/login', {
-			redirect: 'manual',
+		const login = await this.client.requests('https://mee6.xyz/api/login', {
+			timeout: Infinity,
+			disableRedirect: true,
+			ja3: config.botRequests.ja3,
 			headers: {
-				'User-Agent': config.userAgent
+				'User-Agent': config.botRequests.userAgent
 			}
 		}).catch(this.logger.error);
 
@@ -582,8 +583,15 @@ class Invitation {
 			return false;
 		}
 
-		const cookie = login.headers.get('set-cookie');
-		const discord = login.headers.get('location');
+		const cookie = login.headers['Set-Cookie'];
+
+		if (!cookie) {
+			this.logger.error('MEE6 auth didn\'t return:', login.status, '|', 'Expected: 301/302');
+			return false;
+		}
+
+		const discord = login.headers['Location'];
+		const [, sessionId] = cookie[0].match(/session\=([^;]+)/);
 
 		this.logger.info('MEE6 Auth Initial Discord URL:', discord);
 
@@ -593,7 +601,6 @@ class Invitation {
 		this.logger.info('MEE6 Auth API URL:', api.toString());
 
 		const authorization = await fetch(api, {
-			redirect: 'follow',
 			method: 'POST',
 			headers: {
 				'Authorization': token,
@@ -606,6 +613,7 @@ class Invitation {
 				permissions: 0
 			})
 		}).catch(this.logger.error);
+
 
 		if (!authorization) return false;
 
@@ -626,17 +634,20 @@ class Invitation {
 		this.logger.success(`Discord auth returned code ${code}.`);
 		this.logger.info('Finalizing login and exchanging code for token...');
 
-		const res = await fetch('https://mee6.xyz/api/finalize-login', {
-			method: 'POST',
+		const res = await this.client.requests('https://mee6.xyz/api/finalize-login', {
+			ja3: config.botRequests.ja3,
+			timeout: Infinity,
+			cookies: {
+				'session': sessionId
+			},
 			headers: {
-				'Cookie': cookie,
-				'User-Agent': config.userAgent,
+				'User-Agent': config.botRequests.userAgent,
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ code })
-		});
+			body: JSON.stringify({ code, login_type: 'DEFAULT' })
+		}, 'post');
 
-		const json = await res.json();
+		const json = res.body;
 
 		if (json['token']) {
 			this.logger.success('Code exchanged for token. Got MEE6 authorization token:', json['token']);
@@ -656,21 +667,23 @@ class Invitation {
 			const cookie = await this.getDynoCookies(userToken);
 			if (!cookie) throw new Error('Failed to get cookie.');
 
-			this.logger.info({ cookie });
 			this.logger.info('Enabling Dyno\'s welcomer module...');
 
-			await fetch('https://dyno.gg/manage/' + guild.id + '/modules/welcome', {
+			await this.client.requests('https://dyno.gg/manage/' + guild.id + '/modules/welcome', {
+				ja3: config.botRequests.ja3,
+				timeout: Infinity,
 				headers: {
 					'Cookie': cookie,
-					'User-Agent': config.userAgent
+					'User-Agent': config.botRequests.userAgent
 				}
 			});
 
-			const enabled = await fetch('https://dyno.gg/api/server/' + guild.id + '/toggleModule', {
-				method: 'POST',
+			const enabled = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/toggleModule', {
+				ja3: config.botRequests.ja3,
+				timeout: Infinity,
 				headers: {
 					'Cookie': cookie,
-					'User-Agent': config.userAgent,
+					'User-Agent': config.botRequests.userAgent,
 					'Content-Type': 'application/json;charset=UTF-8',
 					'Origin': 'https://dyno.gg',
 					'Referer': `https://dyno.gg/manage/${guild.id}/modules`
@@ -679,11 +692,11 @@ class Invitation {
 					enabled: true,
 					module: 'Welcome'
 				})
-			}).catch(this.logger.error);
+			}, 'post').catch(this.logger.error);
 
 			if (!enabled) return false;
 			if (enabled.status !== 200) {
-				const text = await enabled.text();
+				const text = enabled.body;
 
 				if (enabled.status === 403 && text.includes('Unauthorized 1')) {
 					if (!retry) {
@@ -713,11 +726,12 @@ class Invitation {
 			}
 
 
-			const dm = await fetch('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				method: 'POST',
+			const dm = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
+				ja3: config.botRequests.ja3,
+				timeout: Infinity,
 				headers: {
 					'Cookie': cookie,
-					'User-Agent': config.userAgent,
+					'User-Agent': config.botRequests.userAgent,
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
@@ -725,11 +739,11 @@ class Invitation {
 					setting: 'sendDM',
 					value: true
 				})
-			}).catch(this.logger.error);
+			}, 'post').catch(this.logger.error);
 
 			if (!dm) return false;
 			if (dm.status !== 200) {
-				const text = await dm.text();
+				const text = dm.body;
 
 				this.logger.error('Got unexpected response code when setting welcomer module to dm:', dm.status, '|', 'Expected: 200, data:', text);
 				return false;
@@ -737,11 +751,12 @@ class Invitation {
 
 			this.logger.success('Set Dyno welcomer sendDM to true.');
 
-			const type = await fetch('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				method: 'POST',
+			const type = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
+				ja3: config.botRequests.ja3,
+				timeout: Infinity,
 				headers: {
 					'Cookie': cookie,
-					'User-Agent': config.userAgent,
+					'User-Agent': config.botRequests.userAgent,
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
@@ -749,11 +764,11 @@ class Invitation {
 					setting: 'type',
 					value: 'MESSAGE'
 				})
-			}).catch(this.logger.error);
+			}, 'post').catch(this.logger.error);
 
 			if (!type) return false;
 			if (type.status !== 200) {
-				const text = await type.text();
+				const text = type.body;
 
 				this.logger.error('Got unexpected response code when setting type module setting:', type.status, '|', 'Expected: 200, data:', text);
 				return false;
@@ -761,11 +776,12 @@ class Invitation {
 
 			this.logger.success('Set Dyno welcomer type to MESSAGE.');
 
-			const msg = await fetch('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				method: 'POST',
+			const msg = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
+				ja3: config.botRequests.ja3,
+				timeout: Infinity,
 				headers: {
 					'Cookie': cookie,
-					'User-Agent': config.userAgent,
+					'User-Agent': config.botRequests.userAgent,
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
@@ -773,11 +789,11 @@ class Invitation {
 					setting: 'message',
 					value: this.getWelcomeMessage('dyno')
 				})
-			}).catch(this.logger.error);
+			}, 'post').catch(this.logger.error);
 
 			if (!msg) return false;
 			if (msg.status !== 200) {
-				const text = await msg.text();
+				const text = msg.body;
 
 				this.logger.error('Got unexpected response code when setting the message:', msg.status, '|', 'Expected: 200, data:', text);
 				return false;
@@ -793,10 +809,12 @@ class Invitation {
 	}
 
 	async getDynoCookies(token: string) {
-		const login = await fetch('https://dyno.gg/auth', {
-			redirect: 'manual',
+		this.logger.info('Requesting cookies...');
+		const login = await this.client.requests('https://dyno.gg/auth', {
+			ja3: config.botRequests.ja3,
+			timeout: Infinity,
 			headers: {
-				'User-Agent': config.userAgent
+				'User-Agent': config.botRequests.userAgent
 			}
 		}).catch(this.logger.error);
 
@@ -807,8 +825,10 @@ class Invitation {
 			return false;
 		}
 
-		const body = await login.text();
-		const cookie = login.headers.get('set-cookie');
+
+		const { body } = login;
+
+		const cookie = login.headers['Set-Cookie'].find((cookie) => cookie.startsWith('dynobot.sid=') && !cookie.startsWith('dynobot.sid=;'));
 		const [sid] = cookie.match(/dynobot\.sid\=[^;]+/);
 		const [, url] = body.match(/window\.location\.href = '(.*)'/);
 
@@ -853,19 +873,20 @@ class Invitation {
 		this.logger.success(`Discord auth returned code ${code}.`);
 		this.logger.info('Finalizing login and exchanging code for token...');
 
-		const final = await fetch(returnUrl, {
-			redirect: 'manual',
+		const final = await this.client.requests(returnUrl.toString(), {
+			ja3: config.botRequests.ja3,
+			timeout: Infinity,
 			headers: {
 				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
 				'Cookie': sid,
-				'User-Agent': config.userAgent,
+				'User-Agent': config.botRequests.userAgent,
 				'Referer': 'https://discord.com/'
 			}
-		}).catch(this.logger.error);
+		}, 'get').catch(this.logger.error);
 
 		if (!final) return false;
 
-		if (final.status !== 301 && final.status !== 302) {
+		if (final.status !== 200) {
 			this.logger.error('Dyno auth returned unexpected response code from /return:', final.status, '|', 'Expected: 301/302');
 			return false;
 		}
