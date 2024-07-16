@@ -1,14 +1,13 @@
 import { ChannelType, Guild, GuildMember, Invite, Role } from 'discord.js';
 import { Client as SelfbotClient } from 'discord.js-selfbot-v13';
 import { createLogger } from '@structures/logger';
+import captcha from '@structures/captcha';
 import Client from '@structures/client';
 import config from '@../config.json';
 import { sleep } from '@utilities';
-import { Solver } from '2captcha';
 import fs from 'node:fs';
 import path from 'path';
 
-const solver = new Solver(config.captcha.key);
 
 class Invitation {
 	constructor(
@@ -81,13 +80,7 @@ class Invitation {
 	async joinGuild(invite: string, token: string, id: string) {
 		if (!token || !invite) return false;
 		const client = new SelfbotClient({
-			captchaSolver: (captcha, agent) => {
-				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
-					invisible: 1,
-					userAgent: agent,
-					data: captcha.captcha_rqdata,
-				}).then(res => res.data);
-			},
+			captchaSolver: captcha.solve,
 			captchaRetryLimit: Infinity,
 			http: {
 				headers: {
@@ -349,13 +342,7 @@ class Invitation {
 	async leaveGuild(token: string, id: string) {
 		if (!token || !id) return false;
 		const client = new SelfbotClient({
-			captchaSolver: (captcha, agent) => {
-				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
-					invisible: 1,
-					userAgent: agent,
-					data: captcha.captcha_rqdata,
-				}).then(res => res.data);
-			},
+			captchaSolver: captcha.solve,
 			captchaRetryLimit: Infinity,
 			http: {
 				headers: {
@@ -414,13 +401,7 @@ class Invitation {
 	async addBot(clientId: string, token: string, guild: string) {
 		if (!token || !guild || !clientId) return false;
 		const client = new SelfbotClient({
-			captchaSolver: (captcha, agent) => {
-				return solver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
-					invisible: 1,
-					userAgent: agent,
-					data: captcha.captcha_rqdata,
-				}).then(res => res.data);
-			},
+			captchaSolver: captcha.solve,
 			captchaRetryLimit: Infinity,
 			http: {
 				headers: {
