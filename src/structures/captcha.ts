@@ -1,8 +1,11 @@
-import hCoptcha from '@structures/hcoptcha';
-import { createLogger } from '@structures/logger';
 import type { CaptchaSolver } from 'discord.js-selfbot-v13';
+import { createLogger } from '@structures/logger';
+import hCoptcha from '@structures/hcoptcha';
+import config from '@../config.json';
+import { Solver } from '2captcha';
 
 const logger = createLogger('Client', 'Captcha');
+let twoCaptchaSolver: Solver;
 
 interface Captcha {
 	captcha_sitekey: string;
@@ -10,6 +13,15 @@ interface Captcha {
 }
 
 const solve: CaptchaSolver = async (captcha: Captcha, userAgent: string) => {
+	switch (config.captcha.service.toLowerCase()) {
+		case 'hcoptcha':
+			return solveHCoptcha(captcha, userAgent);
+		case '2captcha':
+			return solveTwoCaptcha(captcha, userAgent);
+	}
+};
+
+const solveHCoptcha = async (captcha: Captcha, userAgent: string) => {
 	const data = { result: null, attempts: 0, error: null };
 
 	logger.info('Received captcha. Attempting to solve it...');
@@ -45,6 +57,16 @@ const solve: CaptchaSolver = async (captcha: Captcha, userAgent: string) => {
 	}
 
 	return data.result;
+};
+
+const solveTwoCaptcha = async (captcha: Captcha, userAgent: string) => {
+	twoCaptchaSolver ??= new Solver(config.captcha.key);
+
+	return twoCaptchaSolver.hcaptcha(captcha.captcha_sitekey, 'discord.com', {
+		invisible: 1,
+		userAgent,
+		data: captcha.captcha_rqdata,
+	}).then(res => res.data);
 };
 
 export default { solve };
