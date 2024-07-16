@@ -48,10 +48,15 @@ class Tokens {
 	}
 
 	getNext() {
-		if ((this.tokens.length - 1) >= this.currentIndex) {
-			this.currentIndex = 0;
-		} else {
-			this.currentIndex++;
+		const current = this.currentIndex;
+		while (true) {
+			const idx = Math.floor(Math.random() * this.tokens.length);
+
+			if (idx !== current) {
+				this.logger.debug(`Changed token to index ${idx}: ${this.tokens[idx]}`);
+				this.currentIndex = idx;
+				break;
+			}
 		}
 
 		return this.tokens[this.currentIndex];
